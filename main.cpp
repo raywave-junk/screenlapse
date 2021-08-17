@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "resource.h"
 #include <Windows.h>
 #include <shellapi.h>
@@ -13,20 +12,19 @@ using namespace rapidjson;
 
 HINSTANCE g_hInst = NULL;
 
-// @credits: https://gist.github.com/prashanthrajagopal/05f8ad157ece964d8c4d
 int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
 	using namespace Gdiplus;
-	UINT  num = 0;
-	UINT  size = 0;
+	UINT num = 0;
+	UINT size = 0;
 
 	ImageCodecInfo* pImageCodecInfo = NULL;
 
 	GetImageEncodersSize(&num, &size);
-	if (size == 0)
+	if (size == 0) [[unlikely]]
 		return -1;
 
 	pImageCodecInfo = (ImageCodecInfo*)(malloc(size));
-	if (pImageCodecInfo == NULL)
+	if (pImageCodecInfo == NULL) [[unlikely]]
 		return -1;
 
 	GetImageEncoders(num, size, pImageCodecInfo);
@@ -84,13 +82,10 @@ auto padString(const int pad, std::string current, char toInsert) -> std::string
 	return current;
 }
 
-// @note: need recoding, pasted from stackoverflow
-std::wstring s2ws(const std::string& str)
+auto s2ws(const std::string& str) -> std::wstring
 {
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
-	std::wstring wstrTo(size_needed, 0);
-	MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
-	return wstrTo;
+	std::wstring converted{ str.begin(), str.end() };
+	return converted;
 }
 
 auto zipArchiveFolder(std::string folderName, std::string zipName) -> void
@@ -104,22 +99,16 @@ auto zipArchiveFolder(std::string folderName, std::string zipName) -> void
 		zf.addEntry(p.path().filename().string().c_str());
 		zf.addFile(p.path().filename().string().c_str(), p.path().string().c_str());
 	}
-	std::vector<ZipEntry> entries = zf.getEntries();
-	std::vector<ZipEntry>::iterator it;
-	for (it = entries.begin(); it != entries.end(); ++it) {
-		ZipEntry entry = *it;
-		entry.setCompressionEnabled(true);
-	}
 
 	zf.close();
 }
 
 auto WinMain(HINSTANCE, HINSTANCE, char*, int) -> int
 {
-	HANDLE mut = OpenMutex(MUTEX_ALL_ACCESS, FALSE, "Screenlapse");
-	if (mut == NULL)
+	HANDLE mut = OpenMutexA(MUTEX_ALL_ACCESS, FALSE, "Screenlapse");
+	if (mut == NULL) [[likely]]
 	{
-		mut = CreateMutex(NULL, false, "Screenlapse");
+		mut = CreateMutexA(NULL, false, "Screenlapse");
 	}
 	else
 	{
@@ -252,10 +241,11 @@ auto WinMain(HINSTANCE, HINSTANCE, char*, int) -> int
 	std::string previousDate = "";
 
 	{
-		time_t t = time(0);
-		std::tm* now = localtime(&t);
+		struct tm now;
+		time_t currentTime = time(0);
+		localtime_s(&now, &currentTime);
 
-		previousDate = std::to_string(now->tm_year + 1900) + "." + padString(2, std::to_string(now->tm_mon + 1), '0') + "." + padString(2, std::to_string(now->tm_mday), '0');
+		previousDate = std::to_string(now.tm_year + 1900) + "." + padString(2, std::to_string(now.tm_mon + 1), '0') + "." + padString(2, std::to_string(now.tm_mday), '0');
 	}
 
 	if (archive)
@@ -281,10 +271,11 @@ auto WinMain(HINSTANCE, HINSTANCE, char*, int) -> int
 
 	while (true)
 	{
-		time_t t = time(0);
-		std::tm* now = localtime(&t);
+		struct tm now;
+		time_t currentTime = time(0);
+		localtime_s(&now, &currentTime);
 
-		std::string currentDate = std::to_string(now->tm_year + 1900) + "." + padString(2, std::to_string(now->tm_mon + 1), '0') + "." + padString(2, std::to_string(now->tm_mday), '0');
+		std::string currentDate = std::to_string(now.tm_year + 1900) + "." + padString(2, std::to_string(now.tm_mon + 1), '0') + "." + padString(2, std::to_string(now.tm_mday), '0');
 
 		std::string dateDir = baseDir + "\\" + currentDate;
 
@@ -320,7 +311,7 @@ auto WinMain(HINSTANCE, HINSTANCE, char*, int) -> int
 		}
 
 		HWND hwnd = GetDesktopWindow();
-		gdiscreen(s2ws(dateDir + "\\" + padString(2, std::to_string(now->tm_hour), '0') + "_" + padString(2, std::to_string(now->tm_min), '0') + "_" + padString(2, std::to_string(now->tm_sec), '0')), s2ws(format));
+		gdiscreen(s2ws(dateDir + "\\" + padString(2, std::to_string(now.tm_hour), '0') + "_" + padString(2, std::to_string(now.tm_min), '0') + "_" + padString(2, std::to_string(now.tm_sec), '0')), s2ws(format));
 
 		Sleep(timeToSleep);
 	}
